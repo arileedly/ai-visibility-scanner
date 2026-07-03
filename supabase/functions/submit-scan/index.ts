@@ -1,7 +1,7 @@
-// Leedly AI Visibility Scanner — Supabase Edge Function
+// Leedly AI Visibility Scanner â Supabase Edge Function
 // POST https://ywhhzhhbfzkcknljlwow.supabase.co/functions/v1/submit-scan
 //
-// Edge Function Secrets required (Supabase dashboard → Edge Functions → Secrets):
+// Edge Function Secrets required (Supabase dashboard â Edge Functions â Secrets):
 //   DATAFORSEO_LOGIN, DATAFORSEO_PASSWORD
 // Auto-injected: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
@@ -153,6 +153,38 @@ Deno.serve(async (req) => {
     });
 
     await sbUpdate("scan_requests", scanReq.id, { status: "complete" });
+
+    // — GHL CRM sync (fire-and-forget, only when email is present) —
+    if (email) {
+      try {
+        const GHL_API_KEY = Deno.env.get("GHL_API_KEY");
+        const GHL_LOCATION_ID = Deno.env.get("GHL_LOCATION_ID");
+        if (GHL_API_KEY && GHL_LOCATION_ID) {
+          const nameParts = (name || "").trim().split(/\s+/);
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+          await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + GHL_API_KEY,
+              "Version": "2021-07-28",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              locationId: GHL_LOCATION_ID,
+              email: email.trim(),
+              firstName,
+              lastName,
+              phone: phone || undefined,
+              website: website_url || undefined,
+              tags: ["ai-scanner-lead"]
+            })
+          });
+        }
+      } catch (ghlErr) {
+        console.error("GHL sync error (non-fatal):", ghlErr.message);
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true, scan_request_id: scanReq.id, normalized_domain,
