@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
       // 2. Backlinks + domain rank
       try {
         const blData = await (await fetchWithTimeout(
-          "https://api.dataforseo.com/v3/backlinks/domain_pages_summary/live",
+          "https://api.dataforseo.com/v3/backlinks/summary/live",
           { method: "POST", headers: { Authorization: authHeader, "Content-Type": "application/json" },
             body: JSON.stringify([{ target: normalized_domain }]) },
           25000
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
           referring_domains: r.referring_domains ?? null,
           measured: true
         } : { domain_rank: null, backlinks: null, referring_domains: null, measured: false };
-        await logApi("backlinks/domain_pages_summary/live", task, 0.0025);
+        await logApi("backlinks/summary/live", task, 0.0025);
       } catch (e) { console.error("Backlinks:", (e as Error).message); }
 
       // 3. LLM mentions: is this domain actually cited by ChatGPT?
