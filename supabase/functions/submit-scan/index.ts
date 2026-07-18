@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { website_url, name, email, phone, business_type,
       city_or_service_area, competitor_url, monthly_marketing_budget,
-      main_goal, consent_given } = body;
+      main_goal, consent_given, scan_request_id } = body;
 
     if (!website_url) return json(400, { error: "website_url is required" });
 
@@ -101,6 +101,18 @@ Deno.serve(async (req) => {
       if (!resp.ok) return null;
       return await resp.json();
     }
+
+    // Step 2: contact info arrives referencing an existing scan. Attach it to
+    // that row (no re-scan) so name/email/phone land on the scanned record and
+    // the notify-lead webhook fires the Slack alert now the row has an email.
+    if (scan_request_id) {
+      await sbUpdate("scan_requests", scan_request_id, {
+        name: name || null, email: email || null, phone: phone || null,
+        consent_given: consent_given === true
+      });
+      return json(200, { success: true, scan_request_id, contact_saved: true });
+    }
+    
 
     // --- Rate limiting (fail open: a rate-limit outage must not kill scans) ---
     try {
