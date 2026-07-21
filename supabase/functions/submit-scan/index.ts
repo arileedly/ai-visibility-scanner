@@ -205,8 +205,10 @@ Deno.serve(async (req) => {
         )).json();
         const task = blData?.tasks?.[0];
         const r = task?.result?.[0] ?? {};
+        // backlinks/summary rank is 0-1000; normalize to 0-100 so the score
+        // thresholds and the frontend authority card read it correctly
         apiFindings.backlinks = task?.status_code === 20000 ? {
-          domain_rank: r.rank ?? 0,
+          domain_rank: r.rank != null ? Math.round(r.rank / 10) : 0,
           backlinks: r.backlinks ?? 0,
           referring_domains: r.referring_domains ?? null,
           measured: true
@@ -509,7 +511,17 @@ Deno.serve(async (req) => {
               lastName: nameParts.slice(1).join(" ") || "",
               phone: phone || undefined,
               website: website_url || undefined,
-              tags: ["ai-scanner-lead"]
+              tags: ["ai-scanner-lead"],
+              // keys must match custom fields created in the GHL location
+              // (Settings > Custom Fields); unknown keys are ignored by GHL
+              customFields: [
+                { key: "ai_visibility_score", field_value: String(aiVisibilityScore) },
+                { key: "agent_readiness_score", field_value: String(agentReadinessScore) },
+                { key: "overall_grade", field_value: grade },
+                { key: "chatgpt_mentions", field_value: String(mentions) },
+                { key: "scan_domain", field_value: normalized_domain },
+                { key: "scan_top_issues", field_value: topIssues.slice(0, 3).map(i => i.title).join("; ") || "None found" }
+              ]
             })
           });
         }
